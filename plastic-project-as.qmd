@@ -33,7 +33,7 @@ test = ds['test']
 
 ```{python}
 # set example
-example = train[1]
+example = train[2]
 example
 ```
 
@@ -89,6 +89,10 @@ def plot_image(example):
 ```
 
 ```{python}
+plot_image(example)
+```
+
+```{python}
 from transformers import AutoImageProcessor
 
 checkpoint = "facebook/detr-resnet-50"
@@ -96,8 +100,46 @@ image_processor = AutoImageProcessor.from_pretrained(checkpoint)
 ```
 
 ```{python}
-plot_image(example)
+pip install -U albumentations opencv-python
 ```
+
+
+```{python}
+import albumentations
+import numpy as np
+
+transform = albumentations.Compose([
+    albumentations.Resize(480, 480),
+    albumentations.HorizontalFlip(p=1.0),
+    albumentations.RandomBrightnessContrast(p=1.0),
+], bbox_params=albumentations.BboxParams(format='coco',  label_fields=['category']))
+
+# RGB PIL Image -> BGR Numpy array
+image = np.flip(np.array(example['image']), -1)
+out = transform(
+    image=image,
+    bboxes=example['litter']['bbox'],
+    category=example['litter']['label'],
+)
+```
+
+# resize bbox muss davor gemacht werden, sonst wird bbox nicht angezeigt
+
+```{python}
+image = torch.tensor(out['image']).flip(-1).permute(2, 0, 1)
+boxes_xywh = torch.stack([torch.tensor(x) for x in out['bboxes']])
+boxes_xyxy = box_convert(boxes_xywh, 'xywh', 'xyxy')
+labels = [categories.int2str(x) for x in out['category']]
+to_pil_image(
+    draw_bounding_boxes(
+        image,
+        boxes_xyxy,
+        colors='red',
+        labels=labels
+    )
+)
+```
+
 
 ```{python}
 boxes_xyxy
